@@ -16,6 +16,11 @@
 """Main script to run training and evaluation of models.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import tempfile
 
@@ -30,7 +35,7 @@ from seq2seq import models
 from seq2seq.configurable import _maybe_load_yaml, _create_from_dict
 from seq2seq.configurable import _deep_merge_dict
 from seq2seq.data import input_pipeline
-from seq2seq.metrics.metric_specs import METRIC_SPECS_DICT
+from seq2seq.metrics import metric_specs
 from seq2seq.training import hooks
 from seq2seq.training import utils as training_utils
 
@@ -172,12 +177,17 @@ def create_experiment(output_dir):
   # Create hooks
   train_hooks = []
   for dict_ in FLAGS.hooks:
-    hook = _create_from_dict(dict_, hooks, model_dir=estimator.model_dir)
+    hook = _create_from_dict(
+        dict_, hooks,
+        model_dir=estimator.model_dir,
+        is_chief=config.is_chief)
     train_hooks.append(hook)
 
   # Create metrics
-  metric_list = FLAGS.metrics
-  eval_metrics = {m : METRIC_SPECS_DICT[m] for m in metric_list}
+  eval_metrics = {}
+  for dict_ in FLAGS.metrics:
+    metric = _create_from_dict(dict_, metric_specs)
+    eval_metrics[metric.name] = metric
 
   experiment = tf.contrib.learn.Experiment(
       estimator=estimator,
@@ -222,8 +232,10 @@ def main(_argv):
     if hasattr(FLAGS, flag_key) and isinstance(getattr(FLAGS, flag_key), dict):
       merged_value = _deep_merge_dict(flag_value, getattr(FLAGS, flag_key))
       setattr(FLAGS, flag_key, merged_value)
-    else:
+    elif hasattr(FLAGS, flag_key):
       setattr(FLAGS, flag_key, flag_value)
+    else:
+      tf.logging.warning("Ignoring config flag: %s", flag_key)
 
   if FLAGS.save_checkpoints_secs is None \
     and FLAGS.save_checkpoints_steps is None:

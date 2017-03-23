@@ -16,6 +16,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import tensorflow as tf
@@ -43,7 +44,8 @@ def _flatten_dict(dict_, parent_key="", sep="."):
     if isinstance(value, collections.MutableMapping):
       items.extend(_flatten_dict(value, new_key, sep=sep).items())
     elif isinstance(value, tuple) and hasattr(value, "_asdict"):
-      items.extend(_flatten_dict(value._asdict(), new_key, sep=sep).items())
+      dict_items = collections.OrderedDict(zip(value._fields, value))
+      items.extend(_flatten_dict(dict_items, new_key, sep=sep).items())
     else:
       items.append((new_key, value))
   return dict(items)
